@@ -1,17 +1,21 @@
 def chunk_text(text, context_window, tokenizer):
     """
-    Splits the text into chunks fitting within the model's token-based context window.
-
+    Splits the text into chunks based on token count to fit within the model's context window.
+    
     Parameters:
     - text: The long text to be chunked.
     - context_window: The maximum token length for each chunk.
-    - tokenizer: The tokenizer associated with the model.
-
+    - tokenizer: Tokenizer used to calculate token length.
+    
     Returns:
-    - List of text chunks that fit within the context window.
+    - List of text chunks.
     """
-    tokens = tokenizer.encode(text)
-    chunks = [tokenizer.decode(tokens[i:i + context_window]) for i in range(0, len(tokens), context_window)]
+    tokens = tokenizer(text, return_tensors="pt", truncation=False)["input_ids"][0]
+    chunks = []
+    for i in range(0, len(tokens), context_window):
+        chunk_tokens = tokens[i:i + context_window]
+        chunk_text = tokenizer.decode(chunk_tokens, skip_special_tokens=True)
+        chunks.append(chunk_text)
     return chunks
 
 def group_chunks(chunks, collapse_threshold, tokenizer):
@@ -54,41 +58,42 @@ def group_chunks(chunks, collapse_threshold, tokenizer):
         
     return grouped
 
-def process_chunk(model, chunk, query):
+def process_chunk(model, chunk, query, context_window):
     """
-    Processes a single chunk using the model, ensuring combined length is within token limits.
+    Processes a single chunk using the model.
     
     Parameters:
     - model: The language model.
     - chunk: Text chunk.
     - query: Query for processing.
+    - context_window: Maximum token length for each chunk.
     
     Returns:
-    - Model's output for the chunk in a structured format.
+    - Model's output for the chunk.
     """
-    combined_input = f"{query}\n{chunk}"
-    max_length = model.tokenizer.model_max_length or 1024  # Get max length or default to 1024
-
-    # Tokenize and truncate combined input if necessary
+    combined_input = f"{query} {chunk}"
+    
+    # Tokenize with truncation to fit within context window
     inputs = model.tokenizer(
-        combined_input, return_tensors="pt", max_length=max_length, truncation=True
+        combined_input, 
+        return_tensors="pt", 
+        max_length=context_window, 
+        truncation=True
     ).to(model.device)
     
-    # Generate response with a limited max length to avoid exceeding the model's capacity
     output = model.model.generate(
         inputs.input_ids,
         attention_mask=inputs.attention_mask,
-        max_new_tokens=100,  
+        max_new_tokens=150,
         temperature=0.7,
-        do_sample=True,
+        do_sample=False,  # Deterministic for summarization
         pad_token_id=model.tokenizer.eos_token_id
     )
-    
-    # Decode and return structured response
+
     output_text = model.tokenizer.decode(output[0], skip_special_tokens=True)
     return {
         "text": output_text,
-        "rationale": "Generated response based on combined input.",
+        "rationale": "Generated based on combine text",
         "answer": output_text
-        # "answer": output_text.split("\n")[0]  # Use first line for the answer
     }
+
