@@ -10,7 +10,7 @@ setup(
     author_email="oladokunjoseph2@example.com",
     url="https://github.com/Godskid89/LLM_MapReduce",
     py_modules=["mapreduce", "confidence_calibration", "structured_info_protocol", "utils"],
-    packages=find_packages()
+    packages=find_packages(),
     install_requires=[
         "tqdm>=4.62.0",
         "pytest>=7.0.0"
